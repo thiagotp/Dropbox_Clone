@@ -2,6 +2,7 @@ class DropBoxController {
 
     constructor() {
 
+        this.onSelectionChange = new Event('selectionchange')
         this.btnSendFile = document.querySelector('#btn-send-file')
         this.inputFiles = document.querySelector('#files')
 
@@ -9,12 +10,40 @@ class DropBoxController {
         this.progressBar = this.snackBar.querySelector('.mc-progress-bar-fg')
         this.nameFileBar = this.snackBar.querySelector('.filename')
         this.timeFileBar = this.snackBar.querySelector('.timeleft')
+        this.listFiles = document.querySelector("#list-of-files-and-directories")
+        this.connectFirebase()
+        this.initEvents()
+        this.readFilesFb()
 
-        this.initEvents();
+    }
+
+    connectFirebase() {
+
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        var firebaseConfig = {
+            apiKey: "AIzaSyAcGLRmH5uOQF8l8TvFZl4O7odITZ7Nm0s",
+            authDomain: "dropbox-clone-4bacc.firebaseapp.com",
+            databaseURL: "https://dropbox-clone-4bacc-default-rtdb.firebaseio.com",
+            projectId: "dropbox-clone-4bacc",
+            storageBucket: "dropbox-clone-4bacc.appspot.com",
+            messagingSenderId: "109668133853",
+            appId: "1:109668133853:web:8e0f4accff148944236434",
+            measurementId: "G-QRXY1G6216"
+        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        firebase.analytics();
 
     }
 
     initEvents() {
+
+        this.listFiles.addEventListener('selectionchange', e => {
+
+            console.log('selectionchange')
+
+        })
 
         this.btnSendFile.addEventListener('click', (e) => {
 
@@ -24,18 +53,51 @@ class DropBoxController {
 
         this.inputFiles.addEventListener('change', (e) => {
 
-            this.uploadTask(e.target.files);
+            this.btnSendFile.disabled = true;
+
+            this.uploadTask(e.target.files).then(responses => {
+
+                responses.forEach(res => {
+
+                    this.firebaseRef().push().set(res.files['input-file'])
+
+                })
+
+                this.uploadComplete();
+
+            }).catch(e => {
+
+                this.uploadComplete();
+                console.log(e);
+
+            });
+
             this.modalShow();
-            this.inputFiles.value = '';
 
         })
-    }
+    }//iniciando os eventos.Adidionando o click ao botão de upload e adicionando ao firebase o arquivo que fez upload
+
+    uploadComplete() {
+
+        setTimeout(() => {
+            this.modalShow(false)
+        }, 2000);
+        this.btnSendFile.disabled = false;
+        this.inputFiles.value = '';
+
+    }//Ajustando mensagem ao término do upload
 
     modalShow(show = true) {
 
         this.snackBar.style.display = (show) ? 'block' : 'none';
 
-    }
+    }//mostrando o progresso do upload
+
+    firebaseRef() {
+
+        return firebase.database().ref('files')
+
+    }//referência para o firebase
 
     uploadTask(files) {
 
@@ -46,10 +108,6 @@ class DropBoxController {
                 let ajax = new XMLHttpRequest();
                 ajax.open('POST', '/upload');
                 ajax.onload = event => {
-
-                    setTimeout(() => {
-                        this.modalShow(false)
-                    }, 2000)
 
 
                     try {
@@ -62,9 +120,6 @@ class DropBoxController {
 
                 ajax.onerror = event => {
 
-                    setTimeout(() => {
-                        this.modalShow(false)
-                    }, 2000)
                     reject(event);
 
                 }
@@ -87,7 +142,7 @@ class DropBoxController {
 
         return Promise.all(promises)
 
-    }
+    }//Método que é responsável por salvar o arquivo selecionado na pasta public do projeto
 
     uploadProgress(event, file) {
 
@@ -111,7 +166,7 @@ class DropBoxController {
 
         }
 
-    }
+    }//Método responsável para configurar a exibição do tempo necessário para upload
 
     formatTime(duration) {
 
@@ -175,6 +230,7 @@ class DropBoxController {
 
             case 'audio/mp3':
             case 'audio/ogg':
+            case 'audio/mpeg':
                 return `
                 <svg width="160" height="160" viewBox="0 0 160 160" class="mc-icon-template-content tile__preview tile__preview--icon">
                                         <title>content-audio-large</title>
@@ -194,7 +250,7 @@ class DropBoxController {
                                         </g>
                                     </svg>
                 `;
-                break;    
+                break;
 
             case 'application/pdf':
                 return `
@@ -231,11 +287,12 @@ class DropBoxController {
                                                 c-0.131-1.296,1.072-0.867,1.753-0.876c0.796-0.011,1.668,0.118,1.588,1.293C97.394,93.857,97.226,94.871,96.229,94.8z"></path>
                                     </svg>
                 `;
-                break;    
+                break;
 
             case 'image/jpg':
             case 'image/jpeg':
             case 'image/png':
+            case 'image/x-icon':
             case 'image/gif':
                 return `
                 <svg version="1.1" id="Camada_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="160px" height="160px" viewBox="0 0 160 160" enable-background="new 0 0 160 160" xml:space="preserve">
@@ -303,15 +360,87 @@ class DropBoxController {
 
     }
 
-    switchViewFile(file) {
+    switchViewFile(file, key) {
 
-        return `
-            <li>
-                ${this.switchViewFileIcon(file)}
-                <div class="name text-center">${file.name}</div>
-            </li>
-        `;
+        let li = document.createElement('li')
 
-    }
+        li.dataset.key = key
+        li.innerHTML = `
+                    ${this.switchViewFileIcon(file)}
+                    <div class="name text-center">${file.name}</div>
+                    `;
+
+        this.initEventsLi(li)
+        return li
+
+    }//Criando "li" para cada item que o firebase tiver salvado
+
+    initEventsLi(li) {
+
+        li.addEventListener("click", event => {
+
+            this.listFiles.dispatchEvent(this.onSelectionChange)
+
+            if (event.shiftKey) {
+
+                let firstLi = this.listFiles.querySelector('.selected')
+
+                if (firstLi) {
+
+                    let indexStart;
+                    let indexEnd;
+                    let lis = li.parentElement.childNodes;
+                    lis.forEach((element, index) => {
+
+                        if (firstLi === element) indexStart = index
+                        if (li === element) indexEnd = index
+
+                    })
+
+                    let index = [indexStart, indexEnd].sort()
+                    lis.forEach((el, i) => {
+
+                        if (i >= index[0] && i <= index[1]) el.classList.add('selected')
+
+                    })
+
+                    return true;
+
+                }
+            }
+
+            if (!event.ctrlKey) {
+
+                this.listFiles.querySelectorAll('li.selected').forEach(el => {
+
+                    el.classList.remove('selected')
+
+                })
+
+            }
+
+            li.classList.toggle('selected')
+
+        })
+
+    }//adicionando efeitos nas linhas criadas
+
+    readFilesFb() {
+
+        this.firebaseRef().on('value', snapshot => {
+
+            this.listFiles.innerHTML = ''
+
+            snapshot.forEach(snapshotItem => {
+
+                let key = snapshotItem.key;
+                let data = snapshotItem.val();
+
+                this.listFiles.appendChild(this.switchViewFile(data, key))
+            })
+
+        })
+
+    }//pegando os dados do firebase e atualizando a tela
 
 }
