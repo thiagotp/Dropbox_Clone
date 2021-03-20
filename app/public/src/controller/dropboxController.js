@@ -3,7 +3,12 @@ class DropBoxController {
     constructor() {
 
         this.onSelectionChange = new Event('selectionchange')
+
         this.btnSendFile = document.querySelector('#btn-send-file')
+        this.btnDelete = document.querySelector('#btn-delete')
+        this.btnNewFolder = document.querySelector('#btn-new-folder')
+        this.btnRename = document.querySelector('#btn-rename')
+
         this.inputFiles = document.querySelector('#files')
 
         this.snackBar = document.querySelector('#react-snackbar-root')
@@ -37,11 +42,52 @@ class DropBoxController {
 
     }
 
+    itemSelection() {
+
+        return this.listFiles.querySelectorAll(".selected")
+
+    }
+
     initEvents() {
+
+        this.btnRename.addEventListener("click", event => {
+
+            let li = this.itemSelection()[0]
+            let file = JSON.parse(li.dataset.file)
+
+            let name = prompt("Renomear o arquivo: ", file.name)
+
+            if(name){
+
+                file.name = name
+                this.firebaseRef().child(li.dataset.key).set(file)
+
+            }
+
+        })
+
+        this.btnRename.addEventListener("click", event => {
+
+
+
+        })
 
         this.listFiles.addEventListener('selectionchange', e => {
 
-            console.log('selectionchange')
+            switch (this.itemSelection().length) {
+                case 0:
+                    this.btnDelete.style.display = 'none';
+                    this.btnRename.style.display = 'none';
+                    break;
+                case 1:
+                    this.btnDelete.style.display = 'block';
+                    this.btnRename.style.display = 'block';
+                    break;
+                default:
+                    this.btnDelete.style.display = 'block';
+                    this.btnRename.style.display = 'none';
+                    break;
+            }
 
         })
 
@@ -365,6 +411,7 @@ class DropBoxController {
         let li = document.createElement('li')
 
         li.dataset.key = key
+        li.dataset.file = JSON.stringify(file)
         li.innerHTML = `
                     ${this.switchViewFileIcon(file)}
                     <div class="name text-center">${file.name}</div>
@@ -379,7 +426,7 @@ class DropBoxController {
 
         li.addEventListener("click", event => {
 
-            this.listFiles.dispatchEvent(this.onSelectionChange)
+
 
             if (event.shiftKey) {
 
@@ -404,6 +451,7 @@ class DropBoxController {
 
                     })
 
+                    this.listFiles.dispatchEvent(this.onSelectionChange)
                     return true;
 
                 }
@@ -420,6 +468,8 @@ class DropBoxController {
             }
 
             li.classList.toggle('selected')
+
+            this.listFiles.dispatchEvent(this.onSelectionChange)
 
         })
 
