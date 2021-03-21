@@ -3,7 +3,7 @@ class DropBoxController {
     constructor() {
 
         this.onSelectionChange = new Event('selectionchange')
-
+        this.currentFolder = ['hcode']
         this.btnSendFile = document.querySelector('#btn-send-file')
         this.btnDelete = document.querySelector('#btn-delete')
         this.btnNewFolder = document.querySelector('#btn-new-folder')
@@ -62,14 +62,30 @@ class DropBoxController {
             formData.append('key', li.dataset.key);
 
             promises.push(this.ajax('DELETE', '/file', formData))
+            console.log(promises)
             
-            return Promise.all(promises)
-
         })
+
+        return Promise.all(promises)
 
     }
 
     initEvents() {
+
+        this.btnNewFolder.addEventListener("click", event => {
+
+            let name = prompt("Nome da Pasta: ")
+
+            if(name){
+
+                this.firebaseRef().push().set({
+                    name,
+                    type:"folder",
+                    path:this.currentFolder.join('/')
+                })
+            }
+
+        })
 
         this.btnRename.addEventListener("click", event => {
 
@@ -91,7 +107,13 @@ class DropBoxController {
 
             this.removeTask().then(responses => {
 
-                console.log('responses');
+                responses.forEach(response => {
+
+                    if(response.fields.key){
+                        this.firebaseRef().child(response.fields.key).remove()
+                    }
+
+                })
 
             }).catch(err => {
 
@@ -176,14 +198,20 @@ class DropBoxController {
 
     ajax(method = "GET", url, formData = new FormData(), onprogress = function () { }, onloardstart = function () { }) {
 
+        console.log(method)
+        console.log(url)
+        for (var pair of formData.entries()) {
+            console.log(pair[0]+ ', ' + pair[1]); 
+        }
+
         return new Promise((resolve, reject) => {
 
 
             let ajax = new XMLHttpRequest();
             ajax.open(method, url);
-            ajax.onload = event => {
-
-
+            ajax.onload = event => {    
+                console.log(ajax)
+                console.log(ajax.responseText)
                 try {
                     resolve(JSON.parse(ajax.responseText));
                 } catch (e) {
