@@ -10,6 +10,11 @@ router.get('/', function (req, res, next) {
 
 router.delete('/file', (req, res) => {
 
+  let form = new formidable.IncomingForm({
+    uploadDir: './upload',
+    keepExtensions: true
+  })
+  
   form.parse(req, (err, fields, files) => {
 
     let path = './' + fields.path
