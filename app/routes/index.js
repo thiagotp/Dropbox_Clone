@@ -8,13 +8,45 @@ router.get('/', function (req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
+router.get('/file', (req, res) => {
+
+  let path = './' + req.query.path;
+
+  if (fs.existsSync(path)) {
+
+    fs.readFile(path, (err, data) => {
+
+      if (err) {
+        console.log(err)
+        res.status(400).json({
+          error: err
+        });
+
+      } else {
+
+        res.status(200).end(data)
+
+      }
+
+    })
+
+  } else {
+
+    res.status(404).json({
+      error: "File not found"
+    })
+
+  }
+
+})
+
 router.delete('/file', (req, res) => {
 
   let form = new formidable.IncomingForm({
     uploadDir: './upload',
     keepExtensions: true
   })
-  
+
   form.parse(req, (err, fields, files) => {
 
     let path = './' + fields.path
@@ -38,6 +70,12 @@ router.delete('/file', (req, res) => {
 
         }
 
+      })
+
+    } else {
+
+      res.status(404).json({
+        error: "File not found"
       })
 
     }
