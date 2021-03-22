@@ -55,14 +55,27 @@ class DropBoxController {
         this.itemSelection().forEach(li => {
 
             let file = JSON.parse(li.dataset.file);
+            let key = li.dataset.key
 
-            let formData = new FormData();
+            promises.push(new Promise((resolve, reject) => {
 
-            formData.append('path', file.path);
-            formData.append('key', li.dataset.key);
+                let fileRef = firebase.storage().ref(this.currentFolder.join('/')).child(file.name)
 
-            promises.push(this.ajax('DELETE', '/file', formData))
-            console.log(promises)
+                fileRef.delete().then(() => {
+
+                    resolve({
+                        fields:{
+                            key
+                        }
+                    })
+
+                }).catch(err => {
+
+                    reject(err)
+
+                })
+
+            }))
 
         })
 
@@ -156,7 +169,15 @@ class DropBoxController {
 
                 responses.forEach(res => {
 
-                    this.firebaseRef().push().set(res.files['input-file'])
+                    this.firebaseRef().push().set({
+
+                        name: res.name,
+                        type: res.contentType,
+                        path: res.customMetadata,
+                        size: res.size
+
+                    })
+                    console.log(responses)
 
                 })
 
@@ -244,27 +265,65 @@ class DropBoxController {
 
         [...files].forEach(file => {
 
-            let formData = new FormData();
 
-            formData.append('input-file', file)
+            promises.push(new Promise((resolve, reject) => {
 
-            let promise = this.ajax("POST", '/upload', formData, () => {
+                let fileRef = firebase.storage().ref(this.currentFolder.join('/')).child(file.name)
 
-                this.uploadProgress(event, file);
+                let task = fileRef.put(file)
 
-            }, () => {
+                task.on('state_changed', snapshot => {
 
-                this.startUploadTime = Date.now();
+                    this.uploadProgress({
 
-            })
+                        loaded: snapshot.bytesTransferred,
+                        total: snapshot.totalBytes
 
-            promises.push(promise)
+                    }, file)
+
+                }, error => {
+
+                    console.error(error)
+                    reject(error)
+
+                }, () => {
+                    task.snapshot.ref.getDownloadURL().then(url => {
+                        task.snapshot.ref.updateMetadata({ customMetadata: { url } }).then(mtdata => {
+                            resolve(mtdata);
+                        });
+                    }).catch(err => {
+
+                        reject(err);
+
+                    })
+
+                })
+
+            }))
 
         })
 
         return Promise.all(promises)
 
     }//Método que é responsável por salvar o arquivo selecionado na pasta public do projeto
+
+    /**
+                let formData = new FormData();
+    
+                formData.append('input-file', file)
+    
+                let promise = this.ajax("POST", '/upload', formData, () => {
+    
+                    this.uploadProgress(event, file);
+    
+                }, () => {
+    
+                    this.startUploadTime = Date.now();
+    
+                })
+    
+                promises.push(promise)
+     */
 
     uploadProgress(event, file) {
 
@@ -501,7 +560,7 @@ class DropBoxController {
     openFolder() {
 
         if (this.lastFolder) this.firebaseRef(this.lastFolder).off('value')
-        this.initEvents();  
+        this.initEvents();
         this.renderNav();
         this.readFilesFb();
 
